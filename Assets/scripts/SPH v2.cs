@@ -5,8 +5,16 @@ using UnityEngine;
 
 public class SPHv2 : MonoBehaviour {
 
+    //Public values that can be modified in the inspector while running the script
     public float interaction_radius = 0.2f;
-
+    public List<Particle> allParticlesInSimulation;
+    public int num_particles_simulation = 1000;
+    public GameObject source_component;
+    public Vector2 top_right_constraint = new Vector2(0,0);
+    public Vector2 top_left_constraint = new Vector2(5, 0);
+    public Vector2 bot_right_constraint = new Vector2(0, 5);
+    public Vector2 bot_left_constraint = new Vector2(5, 5);
+    //Our class particle, in which we store every parameter we need to use when computing our simulation
     public class Particle
     {
         public int idPart;
@@ -19,6 +27,8 @@ public class SPHv2 : MonoBehaviour {
         public Vector3 acceleration;
         public List<Particle> neighbours;
         public int collisions;
+
+        //Constructor
         public Particle()
         {
 
@@ -59,10 +69,29 @@ public class SPHv2 : MonoBehaviour {
         }
 
         return potentialNeighbors;
+
     }
-    // Use this for initialization
+    //Here we are going to take our constraints and generate diferent initial positions taking into account 
+    public Vector3 initializePositionWithConstraints()
+    {
+        Vector3 result= new Vector3(0,0,0);
+        //We continue here
+        return result;
+
+    }
+    // Use this for initialization.
+    //Here we are going to populate our scene with particles and we are going to initialize everything here
     void Start () {
-		
+
+        allParticlesInSimulation = new List<Particle>();
+        for (int i=0;i< num_particles_simulation;i++)
+        {
+            Vector3 initializedPositionWithConstraints = initializePositionWithConstraints();//Here we get a Vector with all the initial positions we are going to give to our particles
+            Particle particle = new Particle();
+            particle.particle = Instantiate(source_component,initializedPositionWithConstraints, Quaternion.identity) as GameObject;
+            allParticlesInSimulation.Add(particle);
+        }
+
 	}
 	
 	// Update is called once per frame
