@@ -15,6 +15,12 @@ public class SPHv2 : MonoBehaviour
     public Vector2 top_left_constraint = new Vector2(10, 0);
     public Vector2 bot_right_constraint = new Vector2(0, 10);
     public Vector2 bot_left_constraint = new Vector2(10, 10);
+    public float gravity;
+    public float dt = 0.003f;
+
+    //Private values that we are going to set internally and won't be available for the user in the inspector
+    private Hashtable spatialHash = new Hashtable();
+
     //Our class particle, in which we store every parameter we need to use when computing our simulation
     public class Particle
     {
@@ -28,6 +34,8 @@ public class SPHv2 : MonoBehaviour
         public Vector3 acceleration;
         public List<Particle> neighbours;
         public int collisions;
+        public Vector3 evaluationVelocity;
+        public int positionInHash;
 
         //Constructor
         public Particle()
@@ -36,6 +44,7 @@ public class SPHv2 : MonoBehaviour
             particle = null;
             gravity = new Vector3(0, 0, 0);
             velocity = new Vector3(0, 0, 0);
+            evaluationVelocity = new Vector3(0, 0, 0);
             acceleration = new Vector3(0, 0, 0);
             density = 0;
             neighbours = new List<Particle>();
@@ -45,16 +54,12 @@ public class SPHv2 : MonoBehaviour
 
     //Here we are going to break all the space we want in small pieces, then we are going to make a projection of our particles in a 2D Grid so as we can calculate
     //our neighbors in 2D to make the operations quicker, once we got our potential neighbors we discard all of the ones that are not optimal
-    public int getPositionInHash(Particle p)
+    public void getPositionInHash(Particle p)
     {
-
         int result = 0;
-
         Vector2 projection = new Vector2(p.particle.transform.position.x, p.particle.transform.position.z);
-
         result = (int)(Mathf.Floor(projection.x / (interaction_radius * 2)) * 10 + Mathf.Floor(projection.y / (interaction_radius * 2)));
-
-        return result;
+        p.positionInHash= result;
     }
 
     List<Particle> findPotentialNeighbors(Particle p, Hashtable spatialHash, int positionInHash)
@@ -71,6 +76,22 @@ public class SPHv2 : MonoBehaviour
 
         return potentialNeighbors;
 
+    }
+    //We are going to add to the given position our particle and set (if not already set) an empty list with our particle inside
+    public void addToHash(Particle p)
+    {
+        if (spatialHash.ContainsKey(p.positionInHash))
+        {
+           List<Particle> particlesInHashPosition=(List<Particle>) spatialHash[p.positionInHash];
+           particlesInHashPosition.Add(p);
+           spatialHash[p.positionInHash] = particlesInHashPosition;
+        }
+        else
+        {
+            List<Particle> particlesInHashPosition = new List<Particle>();
+            particlesInHashPosition.Add(p);
+            spatialHash.Add(p.positionInHash, particlesInHashPosition);
+        }
     }
     //Here we are going to take our constraints and generate diferent initial positions taking into account 
     public Vector3 initializePositionWithConstraints()
@@ -104,13 +125,16 @@ public class SPHv2 : MonoBehaviour
             particle.particle = Instantiate(source_component, initializedPositionWithConstraints, Quaternion.identity) as GameObject;
             allParticlesInSimulation.Add(particle);
         }
-        Initialize(allParticlesInSimulation.ToArray());
+        //Use this method for hive-like behaviours Initialize(allParticlesInSimulation.ToArray());
     }
 
     // Update is called once per frame
     void Update()
     {
-        Integrate(0.1f,allParticlesInSimulation.ToArray());
+        // Use this method to hive-like behaviours Integrate(0.1f,allParticlesInSimulation.ToArray());
+
+        //We first set to empty our spatial hash
+        spatialHash = new Hashtable();
     }
 
 
@@ -163,6 +187,39 @@ public class SPHv2 : MonoBehaviour
             }
             bodies[i].velocity += bodies[i].acceleration * dT2;
         } 
+    }
+
+    //Integration of SPH forces with Leapfrog used in the calculus of positions
+    public void calculateNeighbors(Particle p)
+    {
+        List<Particle> potentialNeighbors = findPotentialNeighbors(p,spatialHash,p.positionInHash);
+        foreach (Particle potentialNeighbor in potentialNeighbors)
+        {
+            if ((potentialNeighbor.particle.transform.position-p.particle.transform.position).magnitude>interaction_radius)
+            {
+                potentialNeighbors.Remove(potentialNeighbor);
+            }
+        }
+        p.neighbours = potentialNeighbors;
+    }
+
+    //TODO:Calculate Pressure forces
+
+    //Integration of Forces with Leapfrog, this is done to perform the movement in our system
+    //This is our last step in the integration
+    public void LeapFrogIntegration(Vector3 force, Particle p)
+    {
+        Vector3 nextvelocity = force/p.mass;
+        nextvelocity *= dt;
+        nextvelocity += p.velocity;
+        p.evaluationVelocity = p.velocity;
+        p.evaluationVelocity += nextvelocity;
+        p.evaluationVelocity *= 0.5f;
+        p.velocity = nextvelocity;
+        nextvelocity *= dt / 5;
+        p.particle.transform.position += nextvelocity;
+        getPositionInHash(p);
+        addToHash(p);
     }
 }
 
