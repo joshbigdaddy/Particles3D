@@ -98,11 +98,11 @@ public class SPHv2 : MonoBehaviour
     {
         Vector3 result;
         //top_left(x,y) ================== top_right (x,y)
-        // |                                     |
-        // |                                     |       
-        // |                                     |
-        // |                                     |
-        // |                                     |
+        // ||                                    ||
+        // ||                                    ||      
+        // ||                                    ||
+        // ||                                    ||
+        // ||                                    ||
         //bot_left(x,y) ================== bot_right (x,y)
         //Note: It is thought to represent a rectangle parallel to the x axis and the y axis to make everything faster and easier to calculate
 
@@ -111,6 +111,21 @@ public class SPHv2 : MonoBehaviour
         float y = Random.Range(0, 10);
         return result = new Vector3(x, y, z);
 
+    }
+    //This method calculates if the particle can move to the position given taking into account those constraints 
+    public bool calculateConstraints(Vector3 position)
+    {
+        bool result = true;
+        float z1 = bot_left_constraint.y;
+        float x1 = bot_left_constraint.x;
+        float z2 = top_right_constraint.y;
+        float x2 = bot_right_constraint.x;
+        float y = 0f;
+        if (position.y<y || position.z <z1 || position.z > z2 || position.x> x1 || position.x < x2)
+        {
+            result = false;
+        }
+        return result;
     }
     // Use this for initialization.
     //Here we are going to populate our scene with particles and we are going to initialize everything here
@@ -135,6 +150,13 @@ public class SPHv2 : MonoBehaviour
 
         //We first set to empty our spatial hash
         spatialHash = new Hashtable();
+
+        foreach (Particle p in allParticlesInSimulation)
+        {
+            calculatePressures(p);
+            Vector3 sph_final_force = calculateSPH(p);
+            LeapFrogIntegration(sph_final_force, p);
+        }
     }
 
 
@@ -204,7 +226,17 @@ public class SPHv2 : MonoBehaviour
     }
 
     //TODO:Calculate Pressure forces
+    public void calculatePressures(Particle p)
+    {
 
+    }
+
+    public Vector3 calculateSPH(Particle p)
+    {
+        Vector3 result_force=  new Vector3 (0, -gravity, 0);
+
+        return result_force;
+    }
     //Integration of Forces with Leapfrog, this is done to perform the movement in our system
     //This is our last step in the integration
     public void LeapFrogIntegration(Vector3 force, Particle p)
@@ -217,7 +249,12 @@ public class SPHv2 : MonoBehaviour
         p.evaluationVelocity *= 0.5f;
         p.velocity = nextvelocity;
         nextvelocity *= dt / 5;
-        p.particle.transform.position += nextvelocity;
+        //Constraints with the recipent
+        bool constraints = calculateConstraints(p.particle.transform.position + nextvelocity);
+        if (constraints) {
+            p.particle.transform.position += nextvelocity;
+        }
+
         getPositionInHash(p);
         addToHash(p);
     }
